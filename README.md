@@ -43,7 +43,7 @@ private class NumberAdderTest {
             .given('the numbers 2 and 5')
             .itShould('return 7')
             .expected(7)
-            .actual(addTwoNumbers(2,5));
+            .actual(NumberAdder.addTwoNumbers(2,5));
     }
 }
 
@@ -73,12 +73,12 @@ private class NumberAdderTest {
             spec.unitUnderTest('NumberAdder.addTwoNumbers()')
                 .given('the number of users and 10')
                 .itShould('return 15');
-            Integer numberOfUsers = [SELECT count(ID) FROM User];
-            TestSpec.SanityCheck userCheck = spec.sanityCheck('Number of users');
+            Integer numberOfUsers = [SELECT count() FROM User];
+            TestSpec.SanityCheck userCheck = spec.sanityCheck('number of users');
             userCheck.expected(5)
                 .actual(numberOfUsers);
             spec.expected(15)
-                .actual(addTwoNumbers(numberOfUsers, 10));
+                .actual(NumberAdder.addTwoNumbers(numberOfUsers, 10));
     }
 }
 ```
