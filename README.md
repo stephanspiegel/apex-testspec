@@ -1,58 +1,95 @@
-# Salesforce App
+# TestSpec for Apex
 
-This guide helps Salesforce developers who are new to Visual Studio Code go from zero to a deployed app using Salesforce Extensions for VS Code and Salesforce CLI.
+Inspired by [Eric Elliott](https://twitter.com/_ericelliott)'s [RITEway](https://github.com/ericelliott/riteway).
 
-## Part 1: Choosing a Development Model
+How good are your unit tests? You won't know until they fail. A passing unit test only tells you "all is well." A failing unit test has the potential to tell you exactly what went wrong and how to fix it, but it takes discipline to write your tests to achieve that!
 
-There are two types of developer processes or models supported in Salesforce Extensions for VS Code and Salesforce CLI. These models are explained below. Each model offers pros and cons and is fully supported.
+Built-in Assert methods in Apex -- `System.assert()`, `System.assertEquals()` and `System.assertNotEquals()` -- have the following downsides:
 
-### Package Development Model
+* The message argument is optional.
+* System.assert() by itself offers little context about the failure, just that the assertion failed.
+* System.assertEquals(expected, actual) requires you to remember the order of the arguments -- "does `expected` come first, or was it `actual`?"
 
-The package development model allows you to create self-contained applications or libraries that are deployed to your org as a single package. These packages are typically developed against source-tracked orgs called scratch orgs. This development model is geared toward a more modern type of software development process that uses org source tracking, source control, and continuous integration and deployment.
+The [RITEway](https://github.com/ericelliott/riteway) testing framework for Javascript encourages you to write unit tests that answer the following questions:
 
-If you are starting a new project, we recommend that you consider the package development model. To start developing with this model in Visual Studio Code, see [Package Development Model with VS Code](https://forcedotcom.github.io/salesforcedx-vscode/articles/user-guide/package-development-model). For details about the model, see the [Package Development Model](https://trailhead.salesforce.com/en/content/learn/modules/sfdx_dev_model) Trailhead module.
+1. What is the unit under test?
+2. What should it do?
+3. What was the actual output?
+4. What was the expected output?
+5. How do you reproduce the failure?
 
-If you are developing against scratch orgs, use the command `SFDX: Create Project` (VS Code) or `sfdx force:project:create` (Salesforce CLI)  to create your project. If you used another command, you might want to start over with that command.
+Using answers to these questions, it produces test failure messages that read like bug reports. It also lays out the unit test code in a consistent way that allows the reader of the code to quickly answer the five questions above. 
 
-When working with source-tracked orgs, use the commands `SFDX: Push Source to Org` (VS Code) or `sfdx force:source:push` (Salesforce CLI) and `SFDX: Pull Source from Org` (VS Code) or `sfdx force:source:pull` (Salesforce CLI). Do not use the `Retrieve` and `Deploy` commands with scratch orgs.
+TestSpec is my attempt to create something similar for Apex.
 
-### Org Development Model
+## Usage
 
-The org development model allows you to connect directly to a non-source-tracked org (sandbox, Developer Edition (DE) org, Trailhead Playground, or even a production org) to retrieve and deploy code directly. This model is similar to the type of development you have done in the past using tools such as Force.com IDE or MavensMate.
+```apex
+public class NumberAdder {
 
-To start developing with this model in Visual Studio Code, see [Org Development Model with VS Code](https://forcedotcom.github.io/salesforcedx-vscode/articles/user-guide/org-development-model). For details about the model, see the [Org Development Model](https://trailhead.salesforce.com/content/learn/modules/org-development-model) Trailhead module.
-
-If you are developing against non-source-tracked orgs, use the command `SFDX: Create Project with Manifest` (VS Code) or `sfdx force:project:create --manifest` (Salesforce CLI) to create your project. If you used another command, you might want to start over with this command to create a Salesforce DX project.
-
-When working with non-source-tracked orgs, use the commands `SFDX: Deploy Source to Org` (VS Code) or `sfdx force:source:deploy` (Salesforce CLI) and `SFDX: Retrieve Source from Org` (VS Code) or `sfdx force:source:retrieve` (Salesforce CLI). The `Push` and `Pull` commands work only on orgs with source tracking (scratch orgs).
-
-## The `sfdx-project.json` File
-
-The `sfdx-project.json` file contains useful configuration information for your project. See [Salesforce DX Project Configuration](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_dev_ws_config.htm) in the _Salesforce DX Developer Guide_ for details about this file.
-
-The most important parts of this file for getting started are the `sfdcLoginUrl` and `packageDirectories` properties.
-
-The `sfdcLoginUrl` specifies the default login URL to use when authorizing an org.
-
-The `packageDirectories` filepath tells VS Code and Salesforce CLI where the metadata files for your project are stored. You need at least one package directory set in your file. The default setting is shown below. If you set the value of the `packageDirectories` property called `path` to `force-app`, by default your metadata goes in the `force-app` directory. If you want to change that directory to something like `src`, simply change the `path` value and make sure the directory you’re pointing to exists.
-
-```json
-"packageDirectories" : [
-    {
-      "path": "force-app",
-      "default": true
+    public static Integer addTwoNumbers(Integer a, Integer b){
+        return a-b; //bug: subtracting instead of adding
     }
-]
+}
+
+
+@isTest
+private class NumberAdderTest {
+
+    @isTest
+    private static void adding2And5ShouldReturn7(){
+        new TestSpec()
+            .unitUnderTest('NumberAdder.addTwoNumbers()')
+            .given('the numbers 2 and 5')
+            .itShould('return 7')
+            .expected(7)
+            .actual(addTwoNumbers(2,5));
+    }
+}
+
+```
+will produce the test failure message:
+```
+System.AssertException: Assertion Failed: NumberAdder.addTwoNumbers(), given the numbers 2 and 5 should return 7: Expected: 7, Actual: -3
 ```
 
-## Part 2: Working with Source
+The methods `unitUnderTest()`, `given()` and `itShould()` must be invoked before `expected()` and `actual()` can be called. Once both `expected()` and `actual()` have been called, TestSpec calls `System.AssertEquals()` to complete the unit test.
 
-For details about developing against scratch orgs, see the [Package Development Model](https://trailhead.salesforce.com/en/content/learn/modules/sfdx_dev_model) module on Trailhead or [Package Development Model with VS Code](https://forcedotcom.github.io/salesforcedx-vscode/articles/user-guide/package-development-model).
+### Sanity Checks
 
-For details about developing against orgs that don’t have source tracking, see the [Org Development Model](https://trailhead.salesforce.com/content/learn/modules/org-development-model) module on Trailhead or [Org Development Model with VS Code](https://forcedotcom.github.io/salesforcedx-vscode/articles/user-guide/org-development-model).
+By design, `unitUnderTest()`, `given()`, `itShould()`, `expected()` and `actual()` all can only be called a single time for a given instance of TestSpec. A good unit test should test one thing only.
+Occasionally though it makes sense to guard against failure conditions that may cause the test to fail, but aren't part of the test itself. For example, the number of records in the database may change, but the logic of the code under tests doesn't directly depend on it. In these circumstances, use a sanity check.
 
-## Part 3: Deploying to Production
+A (very contrived) example:
 
-Don’t deploy your code to production directly from Visual Studio Code. The deploy and retrieve commands do not support transactional operations, which means that a deployment can fail in a partial state. Also, the deploy and retrieve commands don’t run the tests needed for production deployments. The push and pull commands are disabled for orgs that don’t have source tracking, including production orgs.
+```apex
 
-Deploy your changes to production using [packaging](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_dev_dev2gp.htm) or by [converting your source](https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_force_source.htm#cli_reference_convert) into metadata format and using the [metadata deploy command](https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference_force_mdapi.htm#cli_reference_deploy).
+@isTest
+private class NumberAdderTest {
+
+    @isTest
+    private static void adding10ToNumberOfUsersShouldReturn15(){
+        TestSpec spec = new TestSpec();
+            spec.unitUnderTest('NumberAdder.addTwoNumbers()')
+                .given('the number of users and 10')
+                .itShould('return 15');
+            Integer numberOfUsers = [SELECT count(ID) FROM User];
+            TestSpec.SanityCheck userCheck = spec.sanityCheck('Number of users');
+            userCheck.expected(5)
+                .actual(numberOfUsers);
+            spec.expected(15)
+                .actual(addTwoNumbers(numberOfUsers, 10));
+    }
+}
+```
+If the number of users is actually 6 instead of 5, this test will fail with the following message:
+```
+Assertion Failed: [Sanity check failed] Number of users: Expected: 5, Actual: 6
+```
+
+A TestSpec instance can create any number of sanity checks.
+
+## Limitations
+
+Because TestSpec calls `System.assertEquals()` outside of the actual unit test itself, static code analysis tools like [pmd](https://pmd.github.io/pmd/index.html) or [CheckMarx](https://www.checkmarx.com/) will complain that the test doesn't contain asserts.
+
